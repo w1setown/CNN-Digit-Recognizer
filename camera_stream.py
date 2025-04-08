@@ -23,7 +23,7 @@ def start_rpicam_stream():
         "--codec", "mjpeg",
         "--inline",          # Important for MJPEG streaming
         "--listen",          # Listen for connections
-        "-o", f"tcp://0.0.0.0:{tcp_port}"
+        "-o", f"tcp://172.16.3.113:{tcp_port}"
     ])
     
     # Give rpicam time to start
