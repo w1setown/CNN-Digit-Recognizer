@@ -3,12 +3,22 @@ import numpy as np
 import tensorflow as tf
 
 
-def load_and_prepare_mnist():
+def load_and_prepare_mnist(use_emnist=True):
     """
-    Load and preprocess the MNIST dataset
+    Load and preprocess the MNIST or EMNIST dataset
     """
-    mnist = tf.keras.datasets.mnist
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    if use_emnist:
+        # Load EMNIST digits dataset
+        (x_train, y_train), (x_test, y_test) = tf.keras.datasets.emnist.load_data(subset='digits')
+        
+        # EMNIST images need to be rotated and flipped
+        x_train = np.rot90(x_train, k=3, axes=(1,2))
+        x_train = np.flip(x_train, axis=1)
+        x_test = np.rot90(x_test, k=3, axes=(1,2))
+        x_test = np.flip(x_test, axis=1)
+    else:
+        # Original MNIST dataset
+        (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
 
     # Reshape for CNN input (add channel dimension)
     x_train = x_train.reshape(x_train.shape[0], 28, 28, 1)
@@ -19,6 +29,24 @@ def load_and_prepare_mnist():
     x_test = x_test.astype('float32') / 255
 
     return (x_train, y_train), (x_test, y_test)
+
+
+# def load_and_prepare_mnist():
+#     """
+#     Load and preprocess the MNIST dataset
+#     """
+#     mnist = tf.keras.datasets.mnist
+#     (x_train, y_train), (x_test, y_test) = mnist.load_data()
+#
+#     # Reshape for CNN input (add channel dimension)
+#     x_train = x_train.reshape(x_train.shape[0], 28, 28, 1)
+#     x_test = x_test.reshape(x_test.shape[0], 28, 28, 1)
+#
+#     # Normalize pixel values
+#     x_train = x_train.astype('float32') / 255
+#     x_test = x_test.astype('float32') / 255
+#
+#     return (x_train, y_train), (x_test, y_test)
 
 
 def preprocess_image(img_path):

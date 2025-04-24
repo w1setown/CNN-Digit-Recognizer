@@ -649,20 +649,31 @@ def retrain_model_endpoint():
         if model is None:
             model = load_or_train_model()
         
-        # Convert labels to categorical format
-        training_labels_cat = tf.keras.utils.to_categorical(training_labels_np, 10)
+        # Check the loss function used in the model
+        loss_function = model.loss
         
-        # Retrain model with categorical labels
-        model = retrain_model(model, training_images_np, training_labels_cat)
+        # Use sparse categorical crossentropy for integer labels
+        # and categorical crossentropy for one-hot encoded labels
+        if 'sparse' in str(loss_function).lower():
+            # Use integer labels directly
+            retrain_model(model, training_images_np, training_labels_np)
+        else:
+            # Convert labels to categorical format
+            training_labels_cat = tf.keras.utils.to_categorical(training_labels_np, 10)
+            retrain_model(model, training_images_np, training_labels_cat)
         
         # Create a small validation set
         val_size = min(len(training_images_np), 100)
         val_indices = np.random.choice(len(training_images_np), val_size, replace=False)
         val_images = training_images_np[val_indices]
-        val_labels = tf.keras.utils.to_categorical(training_labels_np[val_indices], 10)
+        val_labels = training_labels_np[val_indices]
         
-        # Evaluate model
-        loss, accuracy = model.evaluate(val_images, val_labels, verbose=0)
+        # Evaluate model - use the appropriate format based on loss function
+        if 'sparse' in str(loss_function).lower():
+            loss, accuracy = model.evaluate(val_images, val_labels, verbose=0)
+        else:
+            val_labels_cat = tf.keras.utils.to_categorical(val_labels, 10)
+            loss, accuracy = model.evaluate(val_images, val_labels_cat, verbose=0)
         
         return jsonify({
             'success': True,
