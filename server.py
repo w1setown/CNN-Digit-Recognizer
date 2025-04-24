@@ -166,7 +166,7 @@ def start_tcp_server():
     global tcp_server
     tcp_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tcp_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    tcp_server.bind(('192.168.1.1', tcp_port))
+    tcp_server.bind(('192.168.10.10', tcp_port))
     tcp_server.listen(5)
     
     print(f"TCP server listening on port {tcp_port}")
@@ -740,7 +740,7 @@ def main():
     tcp_thread.start()
     
     print("Starting Flask web server...")
-    app.run(host='192.168.1.1', port=8000, threaded=True)
+    app.run(host='192.168.10.10', port=8000, threaded=True)
 
 if __name__ == '__main__':
     main()
