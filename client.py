@@ -8,7 +8,7 @@ from PIL import Image
 import threading
 
 # Server connection details
-SERVER_HOST = '192.168.1.1'
+SERVER_HOST = '192.168.10.10'
 SERVER_PORT = 8000
 MODEL_ENDPOINT = f'http://{SERVER_HOST}:{SERVER_PORT}/predict'
 MODEL_FILE_ENDPOINT = f'http://{SERVER_HOST}:{SERVER_PORT}/model'
