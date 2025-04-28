@@ -9,8 +9,8 @@ import time
 import json
 from PIL import Image
 import tensorflow as tf
-from model import load_or_train_model
-from training import retrain_model
+from src.model.model import load_or_train_model
+from src.training.training import retrain_model
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)

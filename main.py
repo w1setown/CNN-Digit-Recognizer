@@ -2,10 +2,10 @@ import os
 import numpy as np
 
 # Import from other modules
-from model import load_or_train_model
-from data_utils import preprocess_image
-from visualization import display_prediction_results
-from training import retrain_model
+from src.model.model import load_or_train_model
+from src.utils.data_utils import preprocess_image
+from src.utils.visualization import display_prediction_results
+from src.training.training import retrain_model
 
 
 def main():
