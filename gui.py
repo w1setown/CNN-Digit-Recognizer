@@ -38,7 +38,7 @@ class DrawingCanvas(tk.Canvas):
         
         self.last_x = None
         self.last_y = None
-        self.line_width = 20  # Increased line width for better recognition
+        self.line_width = 12
         
     def paint(self, event):
         """Draw on canvas when mouse is dragged"""
@@ -98,6 +98,41 @@ class PredictionDisplay(tk.Frame):
         self.ax.set_title(f'Predicted: {np.argmax(prediction_array)} ({max(prediction_array)*100:.1f}%)')
         self.canvas.draw()
 
+class TrainingProgressDisplay(tk.Frame):
+    """Display training progress with metrics"""
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, **kwargs)
+        
+        # Create progress indicators
+        self.progress_frame = ttk.LabelFrame(self, text="Training Progress")
+        self.progress_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        # Epoch counter
+        self.epoch_var = tk.StringVar(value="Epoch: 0/0")
+        ttk.Label(self.progress_frame, textvariable=self.epoch_var).pack(fill=tk.X, padx=5, pady=2)
+        
+        # Accuracy
+        self.accuracy_var = tk.StringVar(value="Accuracy: 0.0%")
+        ttk.Label(self.progress_frame, textvariable=self.accuracy_var).pack(fill=tk.X, padx=5, pady=2)
+        
+        # Loss
+        self.loss_var = tk.StringVar(value="Loss: 0.0")
+        ttk.Label(self.progress_frame, textvariable=self.loss_var).pack(fill=tk.X, padx=5, pady=2)
+        
+        # Progress bar
+        self.progress_var = tk.DoubleVar(value=0)
+        self.progress_bar = ttk.Progressbar(self.progress_frame, 
+                                          variable=self.progress_var,
+                                          mode='determinate')
+        self.progress_bar.pack(fill=tk.X, padx=5, pady=2)
+        
+    def update_progress(self, epoch, max_epochs, accuracy, loss):
+        """Update the progress display with new metrics"""
+        self.epoch_var.set(f"Epoch: {epoch}/{max_epochs}")
+        self.accuracy_var.set(f"Accuracy: {accuracy*100:.2f}%")
+        self.loss_var.set(f"Loss: {loss:.4f}")
+        self.progress_var.set((epoch / max_epochs) * 100)
+
 class TrainingPanel(tk.Frame):
     """Panel for retraining the model"""
     def __init__(self, parent, prediction_callback, **kwargs):
@@ -133,6 +168,11 @@ class TrainingPanel(tk.Frame):
         self.stats_text = tk.Text(self.stats_frame, height=5, width=40)
         self.stats_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.stats_text.config(state=tk.DISABLED)
+        
+        # Training progress display
+        self.progress_display = TrainingProgressDisplay(self)
+        self.progress_display.pack(fill=tk.X, pady=5)
+        self.progress_display.pack_forget()  # Hide initially
         
         # Retrain button
         self.retrain_btn = ttk.Button(self, text="Retrain Model", 
@@ -218,14 +258,30 @@ class TrainingPanel(tk.Frame):
             # Get the current model
             model = self.parent.model
             
-            # Retrain
-            retrain_model(model, images, labels)
+            # Show progress display
+            self.progress_display.pack(fill=tk.X, pady=5)
+            
+            # Create a callback to update progress
+            def training_callback(epoch, logs):
+                self.parent.after(0, self.progress_display.update_progress,
+                                epoch + 1, 20,  # max_epochs=20
+                                logs.get('accuracy', 0),
+                                logs.get('loss', 0))
+            
+            # Create callback
+            callback = tf.keras.callbacks.LambdaCallback(on_epoch_end=training_callback)
+            
+            # Retrain with callback
+            retrain_model(model, images, labels, callbacks=[callback])
             
             # Update UI on main thread
             self.parent.after(0, self._retraining_complete, True)
         except Exception as e:
             # Update UI with error
             self.parent.after(0, self._retraining_complete, False, str(e))
+        finally:
+            # Hide progress display
+            self.parent.after(0, self.progress_display.pack_forget)
     
     def _retraining_complete(self, success, error_msg=None):
         """Handle completion of retraining"""

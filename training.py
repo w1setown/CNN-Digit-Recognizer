@@ -1,9 +1,16 @@
 import numpy as np
 
 
-def retrain_model(model, new_images, new_labels, model_path='cnn_model.keras'):
+def retrain_model(model, new_images, new_labels, model_path='cnn_model.keras', callbacks=None):
     """
     Fine-tune a model with new training examples
+    
+    Args:
+        model: The keras model to retrain
+        new_images: Training images
+        new_labels: Training labels
+        model_path: Path to save the model
+        callbacks: List of Keras callbacks to apply during training (default: None)
     """
     if len(new_images) == 0:
         print("No new training data provided.")
@@ -17,9 +24,15 @@ def retrain_model(model, new_images, new_labels, model_path='cnn_model.keras'):
     if isinstance(new_labels, list):
         new_labels = np.array(new_labels)
 
+    # Create default callbacks list if none provided
+    if callbacks is None:
+        callbacks = []
+
     # Fine-tune the model with new data
-    # Use the same loss that was used during model compilation
-    history = model.fit(new_images, new_labels, epochs=3, verbose=1)
+    history = model.fit(new_images, new_labels, 
+                       epochs=20,  # Increased epochs 
+                       verbose=1,
+                       callbacks=callbacks)
 
     # Save the updated model
     model.save(model_path)
