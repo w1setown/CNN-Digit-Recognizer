@@ -142,30 +142,11 @@ class TrainingPanel(tk.Frame):
         self.training_images = []
         self.training_labels = []
         
-        # Current digit selection
-        self.digit_frame = tk.Frame(self)
-        self.digit_frame.pack(fill=tk.X, pady=5)
-        
-        tk.Label(self.digit_frame, text="Current Digit:").pack(side=tk.LEFT, padx=5)
-        
-        self.digit_var = tk.IntVar(value=0)
-        self.digit_selector = ttk.Combobox(self.digit_frame, 
-                                          textvariable=self.digit_var,
-                                          values=list(range(10)),
-                                          width=5,
-                                          state="readonly")
-        self.digit_selector.pack(side=tk.LEFT, padx=5)
-        
-        # Add to training set button
-        self.add_btn = ttk.Button(self, text="Add Current Drawing to Training Set", 
-                                 command=self.add_to_training)
-        self.add_btn.pack(fill=tk.X, pady=5)
-        
         # Training stats
         self.stats_frame = tk.LabelFrame(self, text="Training Data Statistics")
         self.stats_frame.pack(fill=tk.BOTH, expand=True, pady=5)
         
-        self.stats_text = tk.Text(self.stats_frame, height=5, width=40)
+        self.stats_text = tk.Text(self.stats_frame, height=5, width=40)  # Adjust width + height
         self.stats_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.stats_text.config(state=tk.DISABLED)
         
@@ -173,11 +154,6 @@ class TrainingPanel(tk.Frame):
         self.progress_display = TrainingProgressDisplay(self)
         self.progress_display.pack(fill=tk.X, pady=5)
         self.progress_display.pack_forget()  # Hide initially
-        
-        # Retrain button
-        self.retrain_btn = ttk.Button(self, text="Retrain Model", 
-                                     command=self.retrain_model)
-        self.retrain_btn.pack(fill=tk.X, pady=5)
         
         # Update stats
         self.update_stats()
@@ -309,6 +285,10 @@ class DigitRecognitionApp(tk.Tk):
         # Load model
         self.model = None
         
+        style = ttk.Style()
+        style.configure('Big.TButton', padding=(10, 10))  # Increase padding make button bigger
+        style.configure('TCombobox', padding=(5, 5))
+        
         # Create main frames
         self.left_frame = tk.Frame(self)
         self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -328,13 +308,48 @@ class DigitRecognitionApp(tk.Tk):
         self.canvas_controls = tk.Frame(self.left_frame)
         self.canvas_controls.pack(fill=tk.X, padx=10, pady=5)
         
+        # Digit selector
+        self.digit_var = tk.IntVar(value=0)
+        digit_frame = tk.Frame(self.canvas_controls)
+        digit_frame.pack(side=tk.LEFT, padx=5)
+        
+        tk.Label(digit_frame, text="Current Digit:", font=('TkDefaultFont', 10, 'bold')).pack(side=tk.LEFT, padx=25)
+        
+        self.digit_selector = ttk.Combobox(digit_frame, 
+                                          textvariable=self.digit_var,
+                                          values=list(range(10)),
+                                          width=10,
+                                          font=('TkDefaultFont', 10, 'bold'),
+                                          state="readonly")
+        self.digit_selector.pack(side=tk.LEFT)
+        self.digit_selector.current(0)
+        
+        # Clear and Predict buttons
         self.clear_btn = ttk.Button(self.canvas_controls, text="Clear", 
-                                    command=self.clear_canvas)
-        self.clear_btn.pack(side=tk.LEFT, padx=5)
+                                    command=self.clear_canvas,
+                                    width=40, style='Big.TButton')
+        self.clear_btn.pack(side=tk.LEFT, padx=25)
         
         self.predict_btn = ttk.Button(self.canvas_controls, text="Predict", 
-                                     command=self.predict_digit)
-        self.predict_btn.pack(side=tk.LEFT, padx=5)
+                                     command=self.predict_digit,
+                                     width=40, style='Big.TButton')
+        self.predict_btn.pack(side=tk.LEFT, padx=25)
+
+        # Training controls under canvas
+        self.training_controls = tk.Frame(self.left_frame)
+        self.training_controls.pack(fill=tk.X, padx=10, pady=5)
+
+        # Add to training set button
+        self.add_btn = ttk.Button(self.training_controls, text="Add Current Drawing to Training Set", 
+                                 command=lambda: self.training_panel.add_to_training(),
+                                 width=40, style='Big.TButton')
+        self.add_btn.pack(fill=tk.X, pady=5)
+
+        # Retrain button
+        self.retrain_btn = ttk.Button(self.training_controls, text="Retrain Model", 
+                                     command=lambda: self.training_panel.retrain_model(),
+                                     width=40, style='Big.TButton')
+        self.retrain_btn.pack(fill=tk.X, pady=5)
         
         # Prediction display
         self.prediction_frame = tk.LabelFrame(self.right_frame, text="Prediction")
