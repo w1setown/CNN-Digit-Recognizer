@@ -164,6 +164,12 @@ class TrainingPanel(tk.Frame):
         self.stats_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.stats_text.config(state=tk.DISABLED)
         
+        # Add retrain button to the panel
+        self.retrain_btn = ttk.Button(self, text="Retrain Model",
+                                     command=self.retrain_model,
+                                     width=40, style='Big.TButton')
+        self.retrain_btn.pack(fill=tk.X, pady=5)
+        
         # Training progress display
         self.progress_display = TrainingProgressDisplay(self)
         self.progress_display.pack(fill=tk.X, pady=5)
@@ -251,7 +257,7 @@ class TrainingPanel(tk.Frame):
             # Show progress display
             self.progress_display.pack(fill=tk.X, pady=5)
             
-            # Create a callback to update progress
+            # Callback to update progress
             def training_callback(epoch, logs):
                 self.parent.after(0, self.progress_display.update_progress,
                                 epoch + 1, 20,  # max_epochs=20
@@ -367,14 +373,6 @@ class DigitRecognitionApp(tk.Tk):
                                  width=40, style='Big.TButton')
         self.add_btn.pack(fill=tk.X, pady=5)
         
-        # Retrain button
-        self.retrain_btn = ttk.Button(self.training_controls, text="Retrain Model", 
-                                     command=lambda: self.training_panel.retrain_model(),
-                                     width=40, style='Big.TButton')
-        self.retrain_btn.pack(fill=tk.X, pady=5)
-        
-        self.training_panel = TrainingPanel(self, self.predict_digit, self.digit_var)
-
         # Prediction display
         self.prediction_frame = tk.LabelFrame(self.right_frame, text="Prediction")
         self.prediction_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
