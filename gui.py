@@ -69,6 +69,19 @@ class DrawingCanvas(tk.Canvas):
         """Return the current image as a numpy array"""
         return np.array(self.image)
 
+    def show_preprocessed(self, processed_img):
+        """Display the preprocessed image"""
+        # Convert numpy array to PIL Image
+        display_size = (140, 140)  # Half the size of drawing canvas
+        img = Image.fromarray(processed_img)
+        img = img.resize(display_size, Image.Resampling.LANCZOS)
+        img = ImageTk.PhotoImage(img)
+        
+        # Update canvas
+        self.delete("preprocessed")
+        self.create_image(self.width//2, self.height//2, image=img, tags="preprocessed")
+        self.preprocessed_image = img  # Keep reference to prevent garbage collection
+
 class PredictionDisplay(tk.Frame):
     """Frame to display prediction results and confidence"""
     def __init__(self, parent, **kwargs):
@@ -135,10 +148,11 @@ class TrainingProgressDisplay(tk.Frame):
 
 class TrainingPanel(tk.Frame):
     """Panel for retraining the model"""
-    def __init__(self, parent, prediction_callback, **kwargs):
+    def __init__(self, parent, prediction_callback, digit_var, **kwargs):
         super().__init__(parent, **kwargs)
         self.parent = parent
         self.prediction_callback = prediction_callback
+        self.digit_var = digit_var  # Store the digit_var reference
         self.training_images = []
         self.training_labels = []
         
@@ -296,6 +310,14 @@ class DigitRecognitionApp(tk.Tk):
         self.right_frame = tk.Frame(self)
         self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
         
+        # Preview frame for preprocessed image
+        self.preview_frame = tk.LabelFrame(self.left_frame, text="Preprocessed Digit")
+        self.preview_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        self.preview_canvas = tk.Canvas(self.preview_frame, width=140, height=140,
+                                      bg="white", highlightthickness=1)
+        self.preview_canvas.pack(padx=10, pady=5)
+        
         # Drawing canvas
         self.canvas_frame = tk.LabelFrame(self.left_frame, text="Draw a digit")
         self.canvas_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -327,42 +349,42 @@ class DigitRecognitionApp(tk.Tk):
         # Clear and Predict buttons
         self.clear_btn = ttk.Button(self.canvas_controls, text="Clear", 
                                     command=self.clear_canvas,
-                                    width=40, style='Big.TButton')
-        self.clear_btn.pack(side=tk.LEFT, padx=25)
+                                    width=10, style='Big.TButton')
+        self.clear_btn.pack(side=tk.LEFT, padx=5)
         
         self.predict_btn = ttk.Button(self.canvas_controls, text="Predict", 
-                                     command=self.predict_digit,
-                                     width=40, style='Big.TButton')
-        self.predict_btn.pack(side=tk.LEFT, padx=25)
-
+                                      command=self.predict_digit,
+                                      width=10, style='Big.TButton')
+        self.predict_btn.pack(side=tk.LEFT, padx=5)
+        
         # Training controls under canvas
         self.training_controls = tk.Frame(self.left_frame)
         self.training_controls.pack(fill=tk.X, padx=10, pady=5)
-
+        
         # Add to training set button
         self.add_btn = ttk.Button(self.training_controls, text="Add Current Drawing to Training Set", 
                                  command=lambda: self.training_panel.add_to_training(),
                                  width=40, style='Big.TButton')
         self.add_btn.pack(fill=tk.X, pady=5)
-
+        
         # Retrain button
         self.retrain_btn = ttk.Button(self.training_controls, text="Retrain Model", 
                                      command=lambda: self.training_panel.retrain_model(),
                                      width=40, style='Big.TButton')
         self.retrain_btn.pack(fill=tk.X, pady=5)
         
+        self.training_panel = TrainingPanel(self, self.predict_digit, self.digit_var)
+
         # Prediction display
         self.prediction_frame = tk.LabelFrame(self.right_frame, text="Prediction")
         self.prediction_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
         self.prediction_display = PredictionDisplay(self.prediction_frame)
         self.prediction_display.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Training panel
         self.training_frame = tk.LabelFrame(self.right_frame, text="Training")
         self.training_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        self.training_panel = TrainingPanel(self, self.predict_digit)
+        self.training_panel = TrainingPanel(self, self.predict_digit, self.digit_var)
         self.training_panel.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Status bar
@@ -390,7 +412,6 @@ class DigitRecognitionApp(tk.Tk):
             self.after(0, lambda: self.status_var.set("Model loaded successfully"))
         except Exception as e:
             self.after(0, lambda e=e: self.status_var.set(f"Error loading model: {e}"))
-
     
     def clear_canvas(self):
         """Clear the drawing canvas"""
@@ -420,6 +441,16 @@ class DigitRecognitionApp(tk.Tk):
         _, processed_img = cv2.threshold(processed_img, 127, 255, cv2.THRESH_BINARY)
         # Invert the image to match MNIST format (white digits on black background)
         processed_img = cv2.bitwise_not(processed_img)
+        
+        # Show preprocessed image
+        self.preview_canvas.delete("all")
+        preview_img = Image.fromarray(processed_img)
+        preview_img = preview_img.resize((140, 140), Image.Resampling.LANCZOS)
+        preview_img = ImageTk.PhotoImage(preview_img)
+        self.preview_canvas.create_image(70, 70, image=preview_img)
+        self.preview_canvas.image = preview_img  # Keep reference
+        
+        # Prepare for prediction
         processed_img = processed_img.astype('float32') / 255
         processed_img = np.expand_dims(processed_img, axis=-1)
         processed_img = np.expand_dims(processed_img, axis=0)
@@ -432,7 +463,6 @@ class DigitRecognitionApp(tk.Tk):
         predicted_digit = np.argmax(prediction)
         confidence = np.max(prediction) * 100
         self.status_var.set(f"Predicted digit: {predicted_digit} (confidence: {confidence:.2f}%)")
-
 
 def main():
     app = DigitRecognitionApp()
