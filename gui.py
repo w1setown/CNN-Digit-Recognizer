@@ -13,6 +13,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(script_dir)
 
+# Add this import at the top
+from model_ensemble import ModelEnsemble
 
 # Import from other modules
 from model import load_or_train_model
@@ -248,30 +250,24 @@ class TrainingPanel(tk.Frame):
         thread.daemon = True
         thread.start()
     
+    # In TrainingPanel class, modify _do_retraining method
     def _do_retraining(self, images, labels):
-        """Execute retraining in background thread"""
+        """Create new model with training data"""
         try:
-            # Get the current model
-            model = self.parent.model
-            
             # Show progress display
             self.progress_display.pack(fill=tk.X, pady=5)
             
-            # Callback to update progress
-            def training_callback(epoch, logs):
-                self.parent.after(0, self.progress_display.update_progress,
-                                epoch + 1, 20,  # max_epochs=20
-                                logs.get('accuracy', 0),
-                                logs.get('loss', 0))
-            
-            # Create callback
-            callback = tf.keras.callbacks.LambdaCallback(on_epoch_end=training_callback)
-            
-            # Retrain with callback
-            retrain_model(model, images, labels, callbacks=[callback])
+            # Create new model in ensemble
+            self.parent.ensemble.create_new_model(images, labels)
             
             # Update UI on main thread
             self.parent.after(0, self._retraining_complete, True)
+            
+            # Clear training data after successful model creation
+            self.training_images = []
+            self.training_labels = []
+            self.update_stats()
+            
         except Exception as e:
             # Update UI with error
             self.parent.after(0, self._retraining_complete, False, str(e))
@@ -403,13 +399,14 @@ class DigitRecognitionApp(tk.Tk):
         thread.daemon = True
         thread.start()
     
+    # Modify _load_model method
     def _load_model(self):
-        """Load the model in a background thread"""
+        """Load the model ensemble in a background thread"""
         try:
-            self.model = load_or_train_model()
-            self.after(0, lambda: self.status_var.set("Model loaded successfully"))
+            self.ensemble = ModelEnsemble()
+            self.after(0, lambda: self.status_var.set("Model ensemble loaded successfully"))
         except Exception as e:
-            self.after(0, lambda e=e: self.status_var.set(f"Error loading model: {e}"))
+            self.after(0, lambda e=e: self.status_var.set(f"Error loading models: {e}"))
     
     def clear_canvas(self):
         """Clear the drawing canvas"""
@@ -422,15 +419,16 @@ class DigitRecognitionApp(tk.Tk):
             return None
         return img
     
+    # Modify predict_digit method
     def predict_digit(self):
-        """Predict the drawn digit"""
+        """Predict the drawn digit using model ensemble"""
         img = self.get_current_drawing()
         if img is None:
             messagebox.showwarning("Empty Canvas", "Please draw a digit first!")
             return
         
-        if self.model is None:
-            messagebox.showwarning("Model Not Ready", "Model is still loading, please wait")
+        if self.ensemble is None:
+            messagebox.showwarning("Models Not Ready", "Models are still loading, please wait")
             return
         
         # Enhanced preprocessing
@@ -453,14 +451,18 @@ class DigitRecognitionApp(tk.Tk):
         processed_img = np.expand_dims(processed_img, axis=-1)
         processed_img = np.expand_dims(processed_img, axis=0)
         
-        # Make prediction
-        prediction = self.model.predict(processed_img, verbose=0)
-        self.prediction_display.update_prediction(prediction[0])
+        # Make prediction using ensemble
+        prediction = self.ensemble.predict(processed_img)
+        self.prediction_display.update_prediction(prediction)
         
-        # Update status bar
+        # Update status bar with number of models used
         predicted_digit = np.argmax(prediction)
         confidence = np.max(prediction) * 100
-        self.status_var.set(f"Predicted digit: {predicted_digit} (confidence: {confidence:.2f}%)")
+        num_models = len(self.ensemble.models)
+        self.status_var.set(
+            f"Predicted digit: {predicted_digit} (confidence: {confidence:.2f}%) "
+            f"using {num_models} model{'s' if num_models != 1 else ''}"
+        )
 
 def main():
     app = DigitRecognitionApp()
