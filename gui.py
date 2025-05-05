@@ -458,10 +458,11 @@ class DigitRecognitionApp(tk.Tk):
         # Update status bar with number of models used
         predicted_digit = np.argmax(prediction)
         confidence = np.max(prediction) * 100
-        num_models = len(self.ensemble.models)
+        model_counts = self.ensemble.get_model_counts()
+        total_models = model_counts['mnist'] + model_counts['emnist']
         self.status_var.set(
             f"Predicted digit: {predicted_digit} (confidence: {confidence:.2f}%) "
-            f"using {num_models} model{'s' if num_models != 1 else ''}"
+            f"using {total_models} model{'s' if total_models != 1 else ''}"
         )
 
 def main():
