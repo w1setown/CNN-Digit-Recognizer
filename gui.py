@@ -103,14 +103,30 @@ class PredictionDisplay(tk.Frame):
         self.ax.set_xlabel('Digit')
         self.ax.set_ylabel('Probability')
         self.ax.set_title('Prediction Probabilities')
+        
+        # Force the chart to show all digits according to digit amount
+        self.ax.set_xticks(self.digits)  # Set tick positions
+        self.ax.set_xticklabels(self.digits)  # Set tick labels
+        
         self.figure.tight_layout()
         
     def update_prediction(self, prediction_array):
         """Update chart with new prediction probabilities"""
+        # Ensure prediction_array has 10 probabilities (one for each digit)
+        if len(prediction_array) != 10:
+            print("Error: Prediction array does not contain probabilities for all digits.")
+            return
+
+        # Update bar heights
         for bar, prob in zip(self.bars, prediction_array):
             bar.set_height(prob)
-        
-        self.ax.set_title(f'Predicted: {np.argmax(prediction_array)} ({max(prediction_array)*100:.1f}%)')
+
+        # Update chart title with predicted digit and confidence
+        predicted_digit = np.argmax(prediction_array)
+        confidence = max(prediction_array) * 100
+        self.ax.set_title(f'Predicted: {predicted_digit} ({confidence:.1f}%)')
+
+        # Redraw the canvas
         self.canvas.draw()
 
 class TrainingProgressDisplay(tk.Frame):
