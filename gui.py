@@ -298,6 +298,12 @@ class DigitRecognitionApp(tk.Tk):
         self.geometry("800x600")
         self.resizable(True, True)
         
+        # Bind key combinations to actions
+        self.bind("<Control-z>", lambda event: self.clear_canvas()) # Clear canvas
+        self.bind("<Control-x>", lambda event: self.predict_digit()) # Predict digit
+        self.bind("<Control-v>", lambda event: self.training_panel.add_to_training()) # Add to training set
+        self.bind("<Control-n>", lambda event: self.training_panel.retrain_model()) # Retrain model
+        
         # Load model
         self.model = None
         
