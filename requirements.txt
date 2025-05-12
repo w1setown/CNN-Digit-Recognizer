@@ -3,4 +3,5 @@ numpy>=1.19.0
 opencv-python>=4.5.0
 pillow>=8.0.0
 tensorflow>=2.5.0
+tensorflow-datasets>=4.9.8
 werkzeug>=2.0.0

@@ -13,6 +13,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(script_dir)
 
+# Add this import at the top
+from model_ensemble import ModelEnsemble
 
 # Import from other modules
 from model import load_or_train_model
@@ -68,6 +70,19 @@ class DrawingCanvas(tk.Canvas):
     def get_image(self):
         """Return the current image as a numpy array"""
         return np.array(self.image)
+
+    def show_preprocessed(self, processed_img):
+        """Display the preprocessed image"""
+        # Convert numpy array to PIL Image
+        display_size = (140, 140)  # Half the size of drawing canvas
+        img = Image.fromarray(processed_img)
+        img = img.resize(display_size, Image.Resampling.LANCZOS)
+        img = ImageTk.PhotoImage(img)
+        
+        # Update canvas
+        self.delete("preprocessed")
+        self.create_image(self.width//2, self.height//2, image=img, tags="preprocessed")
+        self.preprocessed_image = img  # Keep reference to prevent garbage collection
 
 class PredictionDisplay(tk.Frame):
     """Frame to display prediction results and confidence"""
@@ -135,49 +150,32 @@ class TrainingProgressDisplay(tk.Frame):
 
 class TrainingPanel(tk.Frame):
     """Panel for retraining the model"""
-    def __init__(self, parent, prediction_callback, **kwargs):
+    def __init__(self, parent, prediction_callback, digit_var, **kwargs):
         super().__init__(parent, **kwargs)
         self.parent = parent
         self.prediction_callback = prediction_callback
+        self.digit_var = digit_var  # Store the digit_var reference
         self.training_images = []
         self.training_labels = []
-        
-        # Current digit selection
-        self.digit_frame = tk.Frame(self)
-        self.digit_frame.pack(fill=tk.X, pady=5)
-        
-        tk.Label(self.digit_frame, text="Current Digit:").pack(side=tk.LEFT, padx=5)
-        
-        self.digit_var = tk.IntVar(value=0)
-        self.digit_selector = ttk.Combobox(self.digit_frame, 
-                                          textvariable=self.digit_var,
-                                          values=list(range(10)),
-                                          width=5,
-                                          state="readonly")
-        self.digit_selector.pack(side=tk.LEFT, padx=5)
-        
-        # Add to training set button
-        self.add_btn = ttk.Button(self, text="Add Current Drawing to Training Set", 
-                                 command=self.add_to_training)
-        self.add_btn.pack(fill=tk.X, pady=5)
         
         # Training stats
         self.stats_frame = tk.LabelFrame(self, text="Training Data Statistics")
         self.stats_frame.pack(fill=tk.BOTH, expand=True, pady=5)
         
-        self.stats_text = tk.Text(self.stats_frame, height=5, width=40)
+        self.stats_text = tk.Text(self.stats_frame, height=5, width=40)  # Adjust width + height
         self.stats_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.stats_text.config(state=tk.DISABLED)
+        
+        # Add retrain button to the panel
+        self.retrain_btn = ttk.Button(self, text="Retrain Model",
+                                     command=self.retrain_model,
+                                     width=40, style='Big.TButton')
+        self.retrain_btn.pack(fill=tk.X, pady=5)
         
         # Training progress display
         self.progress_display = TrainingProgressDisplay(self)
         self.progress_display.pack(fill=tk.X, pady=5)
         self.progress_display.pack_forget()  # Hide initially
-        
-        # Retrain button
-        self.retrain_btn = ttk.Button(self, text="Retrain Model", 
-                                     command=self.retrain_model)
-        self.retrain_btn.pack(fill=tk.X, pady=5)
         
         # Update stats
         self.update_stats()
@@ -252,30 +250,24 @@ class TrainingPanel(tk.Frame):
         thread.daemon = True
         thread.start()
     
+    # In TrainingPanel class, modify _do_retraining method
     def _do_retraining(self, images, labels):
-        """Execute retraining in background thread"""
+        """Create new model with training data"""
         try:
-            # Get the current model
-            model = self.parent.model
-            
             # Show progress display
             self.progress_display.pack(fill=tk.X, pady=5)
             
-            # Create a callback to update progress
-            def training_callback(epoch, logs):
-                self.parent.after(0, self.progress_display.update_progress,
-                                epoch + 1, 20,  # max_epochs=20
-                                logs.get('accuracy', 0),
-                                logs.get('loss', 0))
-            
-            # Create callback
-            callback = tf.keras.callbacks.LambdaCallback(on_epoch_end=training_callback)
-            
-            # Retrain with callback
-            retrain_model(model, images, labels, callbacks=[callback])
+            # Create new model in ensemble
+            self.parent.ensemble.create_new_model(images, labels)
             
             # Update UI on main thread
             self.parent.after(0, self._retraining_complete, True)
+            
+            # Clear training data after successful model creation
+            self.training_images = []
+            self.training_labels = []
+            self.update_stats()
+            
         except Exception as e:
             # Update UI with error
             self.parent.after(0, self._retraining_complete, False, str(e))
@@ -306,8 +298,18 @@ class DigitRecognitionApp(tk.Tk):
         self.geometry("800x600")
         self.resizable(True, True)
         
+        # Bind key combinations to actions
+        self.bind("<Control-z>", lambda event: self.clear_canvas()) # Clear canvas
+        self.bind("<Control-x>", lambda event: self.predict_digit()) # Predict digit
+        self.bind("<Control-v>", lambda event: self.training_panel.add_to_training()) # Add to training set
+        self.bind("<Control-n>", lambda event: self.training_panel.retrain_model()) # Retrain model
+        
         # Load model
         self.model = None
+        
+        style = ttk.Style()
+        style.configure('Big.TButton', padding=(10, 10))  # Increase padding make button bigger
+        style.configure('TCombobox', padding=(5, 5))
         
         # Create main frames
         self.left_frame = tk.Frame(self)
@@ -315,6 +317,14 @@ class DigitRecognitionApp(tk.Tk):
         
         self.right_frame = tk.Frame(self)
         self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        
+        # Preview frame for preprocessed image
+        self.preview_frame = tk.LabelFrame(self.left_frame, text="Preprocessed Digit")
+        self.preview_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        self.preview_canvas = tk.Canvas(self.preview_frame, width=140, height=140,
+                                      bg="white", highlightthickness=1)
+        self.preview_canvas.pack(padx=10, pady=5)
         
         # Drawing canvas
         self.canvas_frame = tk.LabelFrame(self.left_frame, text="Draw a digit")
@@ -328,26 +338,53 @@ class DigitRecognitionApp(tk.Tk):
         self.canvas_controls = tk.Frame(self.left_frame)
         self.canvas_controls.pack(fill=tk.X, padx=10, pady=5)
         
+        # Digit selector
+        self.digit_var = tk.IntVar(value=0)
+        digit_frame = tk.Frame(self.canvas_controls)
+        digit_frame.pack(side=tk.LEFT, padx=5)
+        
+        tk.Label(digit_frame, text="Current Digit:", font=('TkDefaultFont', 10, 'bold')).pack(side=tk.LEFT, padx=25)
+        
+        self.digit_selector = ttk.Combobox(digit_frame, 
+                                          textvariable=self.digit_var,
+                                          values=list(range(10)),
+                                          width=10,
+                                          font=('TkDefaultFont', 10, 'bold'),
+                                          state="readonly")
+        self.digit_selector.pack(side=tk.LEFT)
+        self.digit_selector.current(0)
+        
+        # Clear and Predict buttons
         self.clear_btn = ttk.Button(self.canvas_controls, text="Clear", 
-                                    command=self.clear_canvas)
+                                    command=self.clear_canvas,
+                                    width=10, style='Big.TButton')
         self.clear_btn.pack(side=tk.LEFT, padx=5)
         
         self.predict_btn = ttk.Button(self.canvas_controls, text="Predict", 
-                                     command=self.predict_digit)
+                                      command=self.predict_digit,
+                                      width=10, style='Big.TButton')
         self.predict_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Training controls under canvas
+        self.training_controls = tk.Frame(self.left_frame)
+        self.training_controls.pack(fill=tk.X, padx=10, pady=5)
+        
+        # Add to training set button
+        self.add_btn = ttk.Button(self.training_controls, text="Add Current Drawing to Training Set", 
+                                 command=lambda: self.training_panel.add_to_training(),
+                                 width=40, style='Big.TButton')
+        self.add_btn.pack(fill=tk.X, pady=5)
         
         # Prediction display
         self.prediction_frame = tk.LabelFrame(self.right_frame, text="Prediction")
         self.prediction_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
         self.prediction_display = PredictionDisplay(self.prediction_frame)
         self.prediction_display.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Training panel
         self.training_frame = tk.LabelFrame(self.right_frame, text="Training")
         self.training_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        self.training_panel = TrainingPanel(self, self.predict_digit)
+        self.training_panel = TrainingPanel(self, self.predict_digit, self.digit_var)
         self.training_panel.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Status bar
@@ -368,14 +405,14 @@ class DigitRecognitionApp(tk.Tk):
         thread.daemon = True
         thread.start()
     
+    # Modify _load_model method
     def _load_model(self):
-        """Load the model in a background thread"""
+        """Load the model ensemble in a background thread"""
         try:
-            self.model = load_or_train_model()
-            self.after(0, lambda: self.status_var.set("Model loaded successfully"))
+            self.ensemble = ModelEnsemble()
+            self.after(0, lambda: self.status_var.set("Model ensemble loaded successfully"))
         except Exception as e:
-            self.after(0, lambda e=e: self.status_var.set(f"Error loading model: {e}"))
-
+            self.after(0, lambda e=e: self.status_var.set(f"Error loading models: {e}"))
     
     def clear_canvas(self):
         """Clear the drawing canvas"""
@@ -388,15 +425,16 @@ class DigitRecognitionApp(tk.Tk):
             return None
         return img
     
+    # Modify predict_digit method
     def predict_digit(self):
-        """Predict the drawn digit"""
+        """Predict the drawn digit using model ensemble"""
         img = self.get_current_drawing()
         if img is None:
             messagebox.showwarning("Empty Canvas", "Please draw a digit first!")
             return
         
-        if self.model is None:
-            messagebox.showwarning("Model Not Ready", "Model is still loading, please wait")
+        if self.ensemble is None:
+            messagebox.showwarning("Models Not Ready", "Models are still loading, please wait")
             return
         
         # Enhanced preprocessing
@@ -405,19 +443,33 @@ class DigitRecognitionApp(tk.Tk):
         _, processed_img = cv2.threshold(processed_img, 127, 255, cv2.THRESH_BINARY)
         # Invert the image to match MNIST format (white digits on black background)
         processed_img = cv2.bitwise_not(processed_img)
+        
+        # Show preprocessed image
+        self.preview_canvas.delete("all")
+        preview_img = Image.fromarray(processed_img)
+        preview_img = preview_img.resize((140, 140), Image.Resampling.LANCZOS)
+        preview_img = ImageTk.PhotoImage(preview_img)
+        self.preview_canvas.create_image(70, 70, image=preview_img)
+        self.preview_canvas.image = preview_img  # Keep reference
+        
+        # Prepare for prediction
         processed_img = processed_img.astype('float32') / 255
         processed_img = np.expand_dims(processed_img, axis=-1)
         processed_img = np.expand_dims(processed_img, axis=0)
         
-        # Make prediction
-        prediction = self.model.predict(processed_img, verbose=0)
-        self.prediction_display.update_prediction(prediction[0])
+        # Make prediction using ensemble
+        prediction = self.ensemble.predict(processed_img)
+        self.prediction_display.update_prediction(prediction)
         
-        # Update status bar
+        # Update status bar with number of models used
         predicted_digit = np.argmax(prediction)
         confidence = np.max(prediction) * 100
-        self.status_var.set(f"Predicted digit: {predicted_digit} (confidence: {confidence:.2f}%)")
-
+        model_counts = self.ensemble.get_model_counts()
+        total_models = model_counts['mnist'] + model_counts['emnist']
+        self.status_var.set(
+            f"Predicted digit: {predicted_digit} (confidence: {confidence:.2f}%) "
+            f"using {total_models} model{'s' if total_models != 1 else ''}"
+        )
 
 def main():
     app = DigitRecognitionApp()
