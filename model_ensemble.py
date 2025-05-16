@@ -4,6 +4,8 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model #type: ignore
 from model import build_cnn_model
 from data_utils import load_and_prepare_mnist
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau # type: ignore
+from tensorflow.keras.preprocessing.image import ImageDataGenerator # type: ignore
 
 class ModelEnsemble:
     def __init__(self):
@@ -52,15 +54,22 @@ class ModelEnsemble:
             dataset_type (str): Type of dataset to use ('mnist' or 'emnist')
             base_path (str): Base path for saving the model
         """
+        
         os.makedirs('models', exist_ok=True)
         
         # Create new model
         model = build_cnn_model()
+        
+        # Setup callbacks for better training
+        callbacks = [
+            EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True),
+            ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=3, min_lr=0.0001)
+        ]
 
         if images is None or labels is None:
             # Load appropriate dataset
             use_emnist = (dataset_type.lower() == 'emnist')
-            (x_train, y_train), _ = load_and_prepare_mnist(use_emnist=use_emnist)
+            (x_train, y_train), (x_test, y_test) = load_and_prepare_mnist(use_emnist=use_emnist)
             
             # Find next available model number for this type
             prefix = 'emnist' if use_emnist else 'mnist'
@@ -70,11 +79,49 @@ class ModelEnsemble:
             
             model_path = f"{base_path}_{prefix}_{i}.keras"
             
-            # Train on dataset
-            model.fit(x_train, y_train, epochs=20, batch_size=32, verbose=1)
+            # Setup data augmentation for training robustness
+            datagen = ImageDataGenerator(
+                rotation_range=10,
+                width_shift_range=0.1,
+                height_shift_range=0.1,
+                zoom_range=0.1,
+                fill_mode='nearest'
+            )
+            
+            # Train with data augmentation
+            datagen.fit(x_train)
+            model.fit(
+                datagen.flow(x_train, y_train, batch_size=128),
+                epochs=15,
+                validation_data=(x_test, y_test),
+                callbacks=callbacks,
+                verbose=1
+            )
         else:
-            # Train on provided data
-            model.fit(images, labels, epochs=20, batch_size=32, verbose=1)
+            # Create validation split from the provided data
+            from sklearn.model_selection import train_test_split
+            x_train, x_val, y_train, y_val = train_test_split(
+                images, labels, test_size=0.2, random_state=42, stratify=labels
+            )
+            
+            # Apply data augmentation for custom training data
+            datagen = ImageDataGenerator(
+                rotation_range=10,
+                width_shift_range=0.1,
+                height_shift_range=0.1,
+                zoom_range=0.1,
+                fill_mode='nearest'
+            )
+            
+            # Train on provided data with augmentation
+            datagen.fit(x_train)
+            model.fit(
+                datagen.flow(x_train, y_train, batch_size=128),
+                epochs=10,
+                validation_data=(x_val, y_val),
+                callbacks=callbacks,
+                verbose=1
+            )
             
             # Save model with incrementing index
             model_count = len(self.mnist_models) + len(self.emnist_models)
@@ -86,6 +133,7 @@ class ModelEnsemble:
         # Add to ensemble
         self.add_model(model_path, dataset_type)
         print(f"Added new model to ensemble (total models: {len(self.mnist_models) + len(self.emnist_models)})")
+
 
     def predict(self, image):
         """Make prediction using all models in ensemble"""

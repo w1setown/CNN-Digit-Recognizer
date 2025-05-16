@@ -55,7 +55,7 @@ def load_or_train_model(model_path='cnn_model.keras'):
         # Train model
         model.fit(
             x_train, y_train,
-            epochs=5,
+            epochs=10,
             validation_data=(x_test, y_test),
             batch_size=128
         )
