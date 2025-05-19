@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw, ImageTk
 import threading
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import cv2
+from digit_preprocessing import preprocess_digit_image
 
 class DrawingCanvas(tk.Canvas):
     """Canvas widget for drawing digits"""
@@ -136,56 +136,10 @@ class TrainingPanel(tk.Frame):
             return
         digit = self.digit_var.get()
         
-        # Use the same preprocessing as in predict_digit
-        import cv2
-        import numpy as np
-        
-        # Convert to binary using thresholding
-        _, binary = cv2.threshold(drawing, 200, 255, cv2.THRESH_BINARY_INV)
-        
-        # Find contours to detect the digit
-        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        if contours:
-            # Find bounding rectangle of all contours combined
-            all_points = np.concatenate(contours)
-            x, y, w, h = cv2.boundingRect(all_points)
-            
-            # Add padding to maintain aspect ratio
-            padding = max(w, h) // 4
-            
-            # Calculate new boundaries with padding
-            x1 = max(0, x - padding)
-            y1 = max(0, y - padding)
-            x2 = min(drawing.shape[1], x + w + padding)
-            y2 = min(drawing.shape[0], y + h + padding)
-            
-            # Extract the digit with padding
-            digit_roi = binary[y1:y2, x1:x2]
-            
-            # Create a square image with the digit centered
-            square_size = max(digit_roi.shape[0], digit_roi.shape[1])
-            squared_img = np.zeros((square_size, square_size), dtype=np.uint8)
-            
-            # Center the digit in the square
-            offset_x = (square_size - digit_roi.shape[1]) // 2
-            offset_y = (square_size - digit_roi.shape[0]) // 2
-            squared_img[offset_y:offset_y+digit_roi.shape[0], offset_x:offset_x+digit_roi.shape[1]] = digit_roi
-            
-            # Resize to 20x20 preserving aspect ratio (MNIST standard)
-            squared_img = cv2.resize(squared_img, (20, 20), interpolation=cv2.INTER_AREA)
-            
-            # Add 4 pixels of padding around the digit (MNIST standard 28x28)
-            processed_img = np.zeros((28, 28), dtype=np.uint8)
-            processed_img[4:24, 4:24] = squared_img
-        else:
-            # If no contours found, just resize the image
-            processed_img = cv2.resize(binary, (28, 28), interpolation=cv2.INTER_AREA)
-        
-        # Normalize pixel values
-        processed_img = processed_img.astype('float32') / 255.0
-        processed_img = np.expand_dims(processed_img, axis=-1)
-        
+        # Use utility function for preprocessing
+        processed_img, _ = preprocess_digit_image(drawing)
+        processed_img = processed_img[0]  # Remove batch dimension for training set
+
         self.training_images.append(processed_img)
         self.training_labels.append(digit)
         self.update_stats()
@@ -225,6 +179,7 @@ class TrainingPanel(tk.Frame):
     def _do_retraining(self, images, labels):
         try:
             self.progress_display.pack(fill=tk.X, pady=5)
+            # This will create and save a new model in the 'models' directory
             self.parent.ensemble.create_new_model(images, labels)
             self.parent.after(0, self._retraining_complete, True)
             self.training_images = []

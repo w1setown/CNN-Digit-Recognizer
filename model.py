@@ -21,7 +21,7 @@ def build_cnn_model():
 
         # Dense layers
         Dense(128, activation='relu'),
-        Dropout(0.2),  # Dropout to prevent overfitting
+        Dropout(0.25),  # Dropout to prevent overfitting
         Dense(10, activation='softmax')  # 10 output classes (digits 0-9)
     ])
 
