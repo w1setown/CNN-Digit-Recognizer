@@ -1,3 +1,6 @@
+# Digit Recognition GUI Client
+# Run this file on your PC. It connects to the Raspberry Pi camera server for image capture and prediction.
+
 import os
 import sys
 import tkinter as tk
@@ -5,6 +8,8 @@ from tkinter import ttk, messagebox
 import threading
 import numpy as np
 from PIL import Image, ImageTk
+import requests
+import io
 
 # Add project directory to sys.path
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -64,6 +69,13 @@ class DigitRecognitionApp(tk.Tk):
         self.predict_btn = ttk.Button(self.canvas_controls, text="Predict", command=self.predict_digit, width=10, style='Big.TButton')
         self.predict_btn.pack(side=tk.LEFT, padx=5)
 
+        # Add "Capture from Pi" button
+        self.capture_btn = ttk.Button(
+            self.canvas_controls, text="Capture from Pi & Predict",
+            command=self.capture_from_pi, width=22, style='Big.TButton'
+        )
+        self.capture_btn.pack(side=tk.LEFT, padx=5)
+
         # Training controls
         self.training_controls = tk.Frame(self.left_frame)
         self.training_controls.pack(fill=tk.X, padx=10, pady=5)
@@ -100,6 +112,9 @@ class DigitRecognitionApp(tk.Tk):
         # Initialize
         self.ensemble = None
         self.initialize()
+
+        # Set the Pi server URL (change to your Pi's IP if needed)
+        self.pi_url = "http://172.16.145.59:5000/capture_image"  # or use the Pi's IP address
 
     def initialize(self):
         """Initialize the application and load the model ensemble"""
@@ -150,6 +165,39 @@ class DigitRecognitionApp(tk.Tk):
         self.prediction_display.update_prediction(prediction)
 
         # Update status bar
+        predicted_digit = np.argmax(prediction)
+        confidence = np.max(prediction) * 100
+        model_counts = self.ensemble.get_model_counts()
+        total_models = model_counts['mnist'] + model_counts['emnist']
+        self.status_var.set(
+            f"Predicted digit: {predicted_digit} (confidence: {confidence:.2f}%) "
+            f"using {total_models} model{'s' if total_models != 1 else ''}"
+        )
+
+    def capture_from_pi(self):
+        """Fetch image from Pi camera and predict digit."""
+        try:
+            resp = requests.get(self.pi_url, timeout=5)
+            resp.raise_for_status()
+            img_bytes = io.BytesIO(resp.content)
+            pil_img = Image.open(img_bytes).convert("L")
+            img_np = np.array(pil_img)
+            # Optionally invert if needed: img_np = 255 - img_np
+            self._predict_from_image(img_np)
+        except Exception as e:
+            messagebox.showerror("Capture Error", f"Failed to capture image from Pi:\n{e}")
+
+    def _predict_from_image(self, img):
+        """Predict digit from a numpy image array."""
+        if self.ensemble is None:
+            messagebox.showwarning("Models Not Ready", "Models are still loading, please wait")
+            return
+        processed_img, preview_img = preprocess_digit_image(img, preview_size=(140, 140))
+        self.preview_canvas.delete("all")
+        self.preview_canvas.create_image(70, 70, image=preview_img)
+        self.preview_canvas.image = preview_img
+        prediction = self.ensemble.predict(processed_img)
+        self.prediction_display.update_prediction(prediction)
         predicted_digit = np.argmax(prediction)
         confidence = np.max(prediction) * 100
         model_counts = self.ensemble.get_model_counts()

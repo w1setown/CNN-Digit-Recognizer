@@ -1,7 +1,6 @@
 from flask import Flask, Response
 from picamera2 import Picamera2  # type: ignore
 import cv2
-import threading
 
 app = Flask(__name__)
 picam2 = Picamera2()
@@ -22,6 +21,23 @@ def gen_frames():
 def video_feed():
     return Response(gen_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/capture_image')
+def capture_image():
+    """Capture a single frame and return as JPEG image."""
+    frame = picam2.capture_array()
+    # Convert to grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # Apply adaptive thresholding for better digit visibility
+    thresh = cv2.adaptiveThreshold(
+        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 21, 10
+    )
+    # Optionally, resize to 280x280 for consistency (uncomment if needed)
+    # thresh = cv2.resize(thresh, (280, 280), interpolation=cv2.INTER_AREA)
+    ret, buffer = cv2.imencode('.jpg', thresh)
+    if not ret:
+        return "Failed to capture image", 500
+    return Response(buffer.tobytes(), mimetype='image/jpeg')
 
 @app.route('/')
 def index():
