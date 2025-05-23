@@ -21,7 +21,7 @@ def build_cnn_model():
 
         # Dense layers
         Dense(128, activation='relu'),
-        Dropout(0.2),  # Dropout to prevent overfitting
+        Dropout(0.25),  # Dropout to prevent overfitting
         Dense(10, activation='softmax')  # 10 output classes (digits 0-9)
     ])
 
@@ -55,7 +55,7 @@ def load_or_train_model(model_path='cnn_model.keras'):
         # Train model
         model.fit(
             x_train, y_train,
-            epochs=5,
+            epochs=10,
             validation_data=(x_test, y_test),
             batch_size=128
         )
