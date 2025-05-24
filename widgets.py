@@ -16,7 +16,7 @@ class DrawingCanvas(tk.Canvas):
         self.height = kwargs.get('height', 280)
         self.image = Image.new("L", (self.width, self.height), color=255)
         self.draw = ImageDraw.Draw(self.image)
-        self.configure(bg="white", highlightthickness=0)
+        self.configure(bg="white", highlightthickness=2, bd=2, relief=tk.GROOVE)
         self.bind("<B1-Motion>", self.paint)
         self.bind("<ButtonRelease-1>", self.reset_last_point)
         self.last_x = None
@@ -42,6 +42,8 @@ class DrawingCanvas(tk.Canvas):
         self.delete("all")
         self.image = Image.new("L", (self.width, self.height), color=255)
         self.draw = ImageDraw.Draw(self.image)
+        self.last_x = None  # Ensure drawing state is reset
+        self.last_y = None  # Ensure drawing state is reset
 
     def get_image(self):
         return np.array(self.image)
@@ -65,17 +67,19 @@ class PredictionDisplay(tk.Frame):
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         self.digits = list(range(10))
         self.probabilities = [0] * 10
-        self.bars = self.ax.bar(self.digits, self.probabilities)
+        self.bars = self.ax.bar(self.digits, self.probabilities, color="#4a90e2")
         self.ax.set_ylim(0, 1)
-        self.ax.set_xlabel('Digit')
-        self.ax.set_ylabel('Probability')
-        self.ax.set_title('Prediction Probabilities')
+        self.ax.set_xlabel('Digit', fontsize=13)
+        self.ax.set_ylabel('Probability', fontsize=13)
+        self.ax.set_title('Prediction Probabilities', fontsize=15)
+        self.ax.set_xticks(self.digits)  # Show all digits 0-9
+        self.ax.set_xticklabels([str(d) for d in self.digits])
         self.figure.tight_layout()
 
     def update_prediction(self, prediction_array):
         for bar, prob in zip(self.bars, prediction_array):
             bar.set_height(prob)
-        self.ax.set_title(f'Predicted: {np.argmax(prediction_array)} ({max(prediction_array)*100:.1f}%)')
+        self.ax.set_title(f"AI thinks it's a {np.argmax(prediction_array)} ({max(prediction_array)*100:.1f}%)", fontsize=15)
         self.canvas.draw()
 
 class TrainingProgressDisplay(tk.Frame):
@@ -85,11 +89,11 @@ class TrainingProgressDisplay(tk.Frame):
         self.progress_frame = ttk.LabelFrame(self, text="Training Progress")
         self.progress_frame.pack(fill=tk.X, padx=5, pady=5)
         self.epoch_var = tk.StringVar(value="Epoch: 0/0")
-        ttk.Label(self.progress_frame, textvariable=self.epoch_var).pack(fill=tk.X, padx=5, pady=2)
+        ttk.Label(self.progress_frame, textvariable=self.epoch_var, font=('Arial', 12)).pack(fill=tk.X, padx=5, pady=2)
         self.accuracy_var = tk.StringVar(value="Accuracy: 0.0%")
-        ttk.Label(self.progress_frame, textvariable=self.accuracy_var).pack(fill=tk.X, padx=5, pady=2)
+        ttk.Label(self.progress_frame, textvariable=self.accuracy_var, font=('Arial', 12)).pack(fill=tk.X, padx=5, pady=2)
         self.loss_var = tk.StringVar(value="Loss: 0.0")
-        ttk.Label(self.progress_frame, textvariable=self.loss_var).pack(fill=tk.X, padx=5, pady=2)
+        ttk.Label(self.progress_frame, textvariable=self.loss_var, font=('Arial', 12)).pack(fill=tk.X, padx=5, pady=2)
         self.progress_var = tk.DoubleVar(value=0)
         self.progress_bar = ttk.Progressbar(self.progress_frame,
                                             variable=self.progress_var,
@@ -112,16 +116,16 @@ class TrainingPanel(tk.Frame):
         self.training_images = []
         self.training_labels = []
 
-        self.stats_frame = tk.LabelFrame(self, text="Training Data Statistics")
+        self.stats_frame = tk.LabelFrame(self, text="Your Training Data", font=('Arial', 13, 'bold'))
         self.stats_frame.pack(fill=tk.BOTH, expand=True, pady=5)
-        self.stats_text = tk.Text(self.stats_frame, height=5, width=40)
+        self.stats_text = tk.Text(self.stats_frame, height=6, width=42, font=('Arial', 12))
         self.stats_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.stats_text.config(state=tk.DISABLED)
 
-        self.retrain_btn = ttk.Button(self, text="Retrain Model",
+        self.retrain_btn = ttk.Button(self, text="Teach the AI with my drawings",
                                       command=self.retrain_model,
                                       width=40, style='Big.TButton')
-        self.retrain_btn.pack(fill=tk.X, pady=5)
+        self.retrain_btn.pack(fill=tk.X, pady=8)
 
         self.progress_display = TrainingProgressDisplay(self)
         self.progress_display.pack(fill=tk.X, pady=5)
@@ -132,18 +136,16 @@ class TrainingPanel(tk.Frame):
     def add_to_training(self):
         drawing = self.parent.get_current_drawing()
         if drawing is None:
-            messagebox.showwarning("Empty Drawing", "Please draw a digit first!")
+            messagebox.showwarning("No Drawing", "Please draw a digit in the box before adding it!")
             return
         digit = self.digit_var.get()
-        
-        # Use utility function for preprocessing
         processed_img, _ = preprocess_digit_image(drawing)
         processed_img = processed_img[0]  # Remove batch dimension for training set
 
         self.training_images.append(processed_img)
         self.training_labels.append(digit)
         self.update_stats()
-        messagebox.showinfo("Success", f"Added drawing as digit {digit} to training set")
+        messagebox.showinfo("Thank you!", f"Your drawing as digit {digit} was added to help the AI learn!")
         self.parent.clear_canvas()
 
     def update_stats(self):
@@ -154,21 +156,21 @@ class TrainingPanel(tk.Frame):
             stats[label] += 1
         self.stats_text.config(state=tk.NORMAL)
         self.stats_text.delete(1.0, tk.END)
-        self.stats_text.insert(tk.END, "Images per digit:\n")
+        self.stats_text.insert(tk.END, "How many drawings you added for each digit:\n\n")
         for digit in range(10):
             count = stats.get(digit, 0)
-            self.stats_text.insert(tk.END, f"Digit {digit}: {count} images\n")
-        self.stats_text.insert(tk.END, f"\nTotal training images: {len(self.training_images)}")
+            self.stats_text.insert(tk.END, f"Digit {digit}: {count} drawing{'s' if count != 1 else ''}\n")
+        self.stats_text.insert(tk.END, f"\nTotal drawings: {len(self.training_images)}")
         self.stats_text.config(state=tk.DISABLED)
 
     def retrain_model(self):
         if len(self.training_images) == 0:
-            messagebox.showwarning("No Data", "No training data available!")
+            messagebox.showwarning("No Data", "You haven't added any drawings yet!")
             return
         training_images_np = np.array(self.training_images)
         training_labels_np = np.array(self.training_labels)
         self.retrain_btn.config(state=tk.DISABLED)
-        self.retrain_btn.config(text="Retraining...")
+        self.retrain_btn.config(text="Teaching in progress...")
         thread = threading.Thread(
             target=self._do_retraining,
             args=(training_images_np, training_labels_np)
@@ -179,7 +181,6 @@ class TrainingPanel(tk.Frame):
     def _do_retraining(self, images, labels):
         try:
             self.progress_display.pack(fill=tk.X, pady=5)
-            # This will create and save a new model in the 'models' directory
             self.parent.ensemble.create_new_model(images, labels)
             self.parent.after(0, self._retraining_complete, True)
             self.training_images = []
@@ -192,9 +193,9 @@ class TrainingPanel(tk.Frame):
 
     def _retraining_complete(self, success, error_msg=None):
         self.retrain_btn.config(state=tk.NORMAL)
-        self.retrain_btn.config(text="Retrain Model")
+        self.retrain_btn.config(text="Teach the AI with my drawings")
         if success:
-            messagebox.showinfo("Success", "Model retrained successfully!")
+            messagebox.showinfo("Success!", "Thank you! The AI has learned from your drawings.")
             self.prediction_callback()
         else:
-            messagebox.showerror("Error Retraining", f"Error: {error_msg}")
+            messagebox.showerror("Oops!", f"Something went wrong: {error_msg}")
