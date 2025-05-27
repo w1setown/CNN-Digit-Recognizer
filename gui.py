@@ -14,6 +14,7 @@ from model_ensemble import ModelEnsemble
 from widgets import DrawingCanvas, PredictionDisplay, TrainingPanel
 from digit_preprocessing import preprocess_digit_image  # NEW IMPORT
 
+
 class ToolTip:
     """Simple tooltip for widgets"""
     def __init__(self, widget, text):
@@ -51,7 +52,13 @@ class DigitRecognitionApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Handwritten Digit Recognition   ")
-        self.geometry("900x650+0+0")  # Move window to top-left corner of the screen
+        
+        icon_path = os.path.join(script_dir, "logo.png") 
+        if os.path.exists(icon_path):
+            icon_img = Image.open(icon_path)
+            self.iconphoto(False, ImageTk.PhotoImage(icon_img))
+            
+        self.geometry("900x650+0+0") 
         self.resizable(True, True)
         self.configure(bg="#f0f4ff")
 
