@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, '3.10', '3.11']
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Lint with flake8
+      run: |
+        pip install flake8
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    - name: Test imports and basic functionality
+      run: |
+        python -c "import tensorflow as tf; print('TensorFlow version:', tf.__version__)"
+        python -c "import cv2; print('OpenCV version:', cv2.__version__)"
+        python -c "from model import build_cnn_model; print('Model creation: OK')"
+        python -c "from data_utils import load_and_prepare_mnist; print('Data utils: OK')"
+        python -c "from digit_preprocessing import preprocess_digit_image; print('Preprocessing: OK')"
+    
+    - name: Test model architecture
+      run: |
+        python -c "
+        from model import build_cnn_model
+        import tensorflow as tf
+        model = build_cnn_model()
+        print('Model summary:')
+        model.summary()
+        # Test model with dummy data
+        import numpy as np
+        dummy_input = np.random.random((1, 28, 28, 1))
+        output = model(dummy_input)
+        print(f'Model output shape: {output.shape}')
+        assert output.shape == (1, 10), 'Model output shape incorrect'
+        print('Model architecture test: PASSED')
+        "
+    
+    - name: Check file structure
+      run: |
+        echo "Checking required files..."
+        test -f model.py && echo "✓ model.py exists"
+        test -f data_utils.py && echo "✓ data_utils.py exists" 
+        test -f gui.py && echo "✓ gui.py exists"
+        test -f requirements.txt && echo "✓ requirements.txt exists"
+        test -f README.md && echo "✓ README.md exists"
+        echo "File structure check: PASSED"
