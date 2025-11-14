@@ -192,8 +192,10 @@ Language switching affects:
 
 ### Performance
 - Models are loaded once at startup
+- Boot up of the program is slow, so do be patient. ^^
 - Predictions are near-instantaneous
 - Training new models takes 1-3 minutes depending on data size
+    - When training new models, it is advised to have the dataset as large as possible, while also varied.
 - Memory usage scales with number of models in ensemble
 
 ## Troubleshooting

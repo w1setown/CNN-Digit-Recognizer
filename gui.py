@@ -129,8 +129,8 @@ class DigitRecognitionApp(tk.Tk):
         flag_frame = tk.Frame(self, bg="#f0f4ff")
         flag_frame.pack(side=tk.TOP, anchor="nw", padx=18, pady=(2, 0))  # Reduce top padding
         self.flag_imgs = {
-            "en": ImageTk.PhotoImage(Image.open(os.path.join(script_dir, "flag_uk.png")).resize((48, 30))),  # Larger
-            "da": ImageTk.PhotoImage(Image.open(os.path.join(script_dir, "flag_dk.png")).resize((48, 30))),
+            "en": ImageTk.PhotoImage(Image.open(os.path.join(script_dir, "Images/flag_uk.png")).resize((48, 30))),  # Larger
+            "da": ImageTk.PhotoImage(Image.open(os.path.join(script_dir, "Images/flag_dk.png")).resize((48, 30))),
         }
         self.flag_btn_en = tk.Button(flag_frame, image=self.flag_imgs["en"], bd=0, command=lambda: self.set_language("en"), cursor="hand2")
         self.flag_btn_en.pack(side=tk.LEFT, padx=4)
