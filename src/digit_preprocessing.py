@@ -4,7 +4,7 @@ from PIL import Image, ImageTk
 
 def preprocess_digit_image(img, preview_size=(140, 140)):
     """
-    Preprocess a digit image for model prediction/training and GUI preview.
+    Preprocess a digit image for model prediction/training and GUI pre  view.
     Returns (processed_img, preview_img)
     - processed_img: shape (1, 28, 28, 1), float32, normalized
     - preview_img: ImageTk.PhotoImage for display

@@ -1,3 +1,9 @@
+import sys
+import os
+
+# Add src folder to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
 from model_ensemble import ModelEnsemble
 
 # Create ensemble instance

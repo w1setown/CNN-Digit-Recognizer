@@ -1,7 +1,12 @@
+import sys
+import os
 import numpy as np
 
+# Add src folder to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-def retrain_model(model, new_images, new_labels, model_path='cnn_model.keras', callbacks=None):
+
+def retrain_model(model, new_images, new_labels, model_path='models/cnn_model.keras', callbacks=None):
     """
     Fine-tune a model with new training examples
     

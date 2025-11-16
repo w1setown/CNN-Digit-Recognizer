@@ -62,6 +62,11 @@ python create_models.py
 
 ### Starting the Application
 ```bash
+python run_gui.py
+```
+
+Alternatively, if you're in the src folder:
+```bash
 python gui.py
 ```
 
@@ -80,22 +85,30 @@ For best results simulating handwriting, use a drawing tablet instead of a mouse
 
 ```
 CNN-DIGIT-RECOGNIZER/
-├── __pycache__/                # Python cache files
+├── assets/                     # Image assets and resources
+│   ├── flag_dk.png             # Danish flag image
+│   ├── flag_uk.png             # UK flag image
+│   └── logo.png                # Application logo
 ├── models/                     # Saved model files
 │   └── model_mnist_0.keras     # Trained Keras model
-├── test_digits/                # Test digit images
+├── src/                        # Main application source code
+│   ├── __init__.py             # Module initialization
+│   ├── gui.py                  # Main application window and UI logic
+│   ├── widgets.py              # Custom UI components (canvas, charts, panels)
+│   ├── model.py                # CNN model architecture definition
+│   ├── model_ensemble.py       # Ensemble model management and predictions
+│   ├── data_utils.py           # Data loading and preprocessing utilities
+│   ├── digit_preprocessing.py  # Image preprocessing functions
+│   └── model_evaluation.py     # Model evaluation and metrics
+├── tests/                      # Unit tests
+│   ├── __init__.py
+│   ├── test_model.py
+│   ├── test_data_utils.py
+│   └── test_digit_preprocessing.py
 ├── create_models.py            # Script to create initial models
-├── data_utils.py               # Data loading and preprocessing utilities
-├── digit_preprocessing.py      # Image preprocessing functions
-├── flag_dk.png                 # Danish flag image
-├── flag_uk.png                 # UK flag image
-├── gui.py                      # Main application window and UI logic
-├── model_ensemble.py           # Ensemble model management and predictions
-├── model_evaluation.py         # Model evaluation and metrics
-├── model.py                    # CNN model architecture definition
+├── run_gui.py                  # Entry point to launch the GUI application
+├── training.py                 # Model training utilities
 ├── requirements.txt            # Project dependencies
-├── training.py                 # Model training script
-├── widgets.py                  # Custom UI components (canvas, charts, panels)
 └── README.md                   # This file
 ```
 

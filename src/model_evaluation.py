@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from model_ensemble import ModelEnsemble
 
-def evaluate_test_images(folder_path="test_digits"):
+def evaluate_test_images(folder_path="../test_digits"):
     """Evaluate model performance on a folder of test images"""
     # Load ensemble
     print("Loading model ensemble...")
